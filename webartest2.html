@@ -214,14 +214,13 @@
         });
         
         clara.el.addEventListener('tts-start', function () {
-          // When we start speaking, stop listening.
           console.warn('tts-start, isSpeaking true');
           clara.isSpeaking = true;
-/*          
-          // Somehow, doing voiceCancel here kills us speaking...          
-          console.warn('tts-start, voiceStop');
-          clara.voiceStop();
-*/          
+          
+          // When we start speaking, stop listening.
+          // (Doesn't crash anymore.)
+          console.warn('tts-start, voiceCancel');
+          clara.voiceCancel();          
         });
         
         clara.el.addEventListener('tts-cancel', function () {
@@ -309,9 +308,9 @@
                       + position.coords.longitude);
             });
           } else
-          if (value.length === 1 && value[0].startsWith('What is that')) {
+          if (value.length === 1 && (value[0].startsWith('What\'s that') || value[0].startsWith('What is that'))) {
             clara.voiceCancel(); // end this utterance                    
-            clara.analyzeCurrentFrame("mobilenet");
+            clara.analyzeCurrentFrame("inceptionv3");
           } else
           if (value.length === 1 && value[0].startsWith('How old')) {
             clara.voiceCancel(); // end this utterance                    
