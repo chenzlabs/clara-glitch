@@ -1,0 +1,36 @@
+<html>
+  <head>
+    <style>
+      button {width:100%; height:10%; font-size: 24px;}
+    </style>
+  </head>
+  <body>
+    <hr/>
+    <button onclick='location.href="https://aframe-ar-plane.glitch.me"'>WebAR aframe-ar-plane</button>
+    <hr/>
+    <button onclick='location.href="https://aframe-ar-plane.glitch.me/bare.html"'>WebAR aframe-ar-plane bare</button>
+    <hr/>
+    <button onclick='location.href="https://reveal-reality.glitch.me"'>WebAR reveal-reality</button>
+    <hr/>
+    <button onclick='location.href="webardino.html"'>WebAR Dino</button>
+    <hr/>
+    <button onclick='location.href="webartrooper.html"'>WebAR Trooper</button>
+    <hr/>
+    <button onclick='location.href="webarstatue.html"'>WebAR Statue</button>
+    <hr/>
+    <button onclick='location.href="webartest2.html"'>clara Test 2</button>
+    <hr/>
+    <script>
+      function goToLocationBar() {
+        var l = document.querySelector("#locationbar").value; 
+        if (l.indexOf(":") === -1 && !l.startsWith("/")) { l = "http://" + l;}
+        location.href = l;
+      }
+    </script>
+    <!-- FIXME: stpudly small on iPhone -->
+    <input style="width:80%;height:64px" id="locationbar" type="text" size="20" 
+           onkeydown="if (event.keyCode === 13) { goToLocationBar(); }" />
+    <button style="width:auto" onclick="goToLocationBar()">Go</button>
+    </button>
+  </body>
+</html>

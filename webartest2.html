@@ -1,0 +1,354 @@
+<html>
+  <head>
+    <!-- Include my latest A-Frame master. -->
+    <script src="//rawgit.com/chenzlabs/aframe/master/dist/aframe-master.js"></script>    
+    <!-- Include three.ar.js library. -->
+    <script src="//rawgit.com/google-ar/three.ar.js/master/dist/three.ar.js"></script>
+    <!-- Include my experimental A-Frame three.ar.js scene component with plane events. -->
+    <script src="//rawgit.com/chenzlabs/aframe-ar/experimental-planes/dist/aframe-ar.js"></script>
+    <!-- Include my A-Frame grid shader. -->
+    <script src="grid-shader.js"></script>
+    <!-- Include my Clara A-Frame scene component. -->
+    <script src="clara.js"></script>
+
+    <!-- Prevent touch causing flicker on iOS. -->
+    <style> * { -webkit-tap-highlight-color: rgba(0,0,0,0); } </style>    
+  </head>
+  <body>
+    <!-- Use AR with the scene, and don't show the usual VR icon. -->
+    <a-scene ar>
+      <!-- Wrap in a reality so we can offset position later, e.g. to emulate long/lat. -->
+      <a-entity id="reality">
+        <!-- Wrap in a locality. -->
+        <a-entity id="locality" clara clara-pointcloud>
+          <!-- ARKit used for camera position/rotation and projection matrix -->
+          <a-camera>
+            <!-- Head-locked text used for heads-up display to the user. -->
+            <a-text id="hud" width="0.8" height="0.8" align="center" 
+                    value="Looking for planes..." 
+                    color="yellow" position="0 -0.6 -2"></a-text>
+          </a-camera>
+        </a-entity>  
+      </a-entity>
+        
+      <!-- Mimic some of ARKit test scene, to attempt visual alignment 
+          (once it matters more... for now, the effect is good enough) --
+          NOTE: radius-tubular seems broken? --
+      <a-box color="red" opacity="0.75" position="0 0 0" scale="0.1 0.1 0.1"></a-box>      
+      <a-sphere color="red" opacity="0.75" position="0.2 0 0" radius="0.05"></a-sphere>
+      <a-cylinder color="red" opacity="0.75" position="0.4 0 0" radius="0.05" height="0.1"></a-cylinder>
+      <a-cone color="red" opacity="0.75" position="0 0.2 0" radius-top="0" radius-bottom="0.05" height="0.1"></a-cone>
+      <a-torus color="red" opacity="0.75" rotation="-90 0 0" position="0 0.4 0" radius="0.06" radius-tubular="0.02"></a-torus>
+      <a-plane color="red" opacity="0.75" position="0.4 0.4 0" width="0.1" height="0.1"></a-plane>
+      <a-text color="blue" position="0 1 -2" align="center" value="Hi there"></a-text>
+      !-- -->
+    </a-scene>
+    
+    <script>
+      var scene = document.querySelector('a-scene');
+      var reality = scene.querySelector('#reality');
+      var clara;
+      
+      function showHUD(msg, color) { 
+        var properties = {value: msg};
+        if (color) { properties.color = color; }
+        scene.querySelector('#hud').setAttribute('text', properties);
+      }
+
+      function elementIdForPlane(id) { return 'plane-' + id; }
+      function elementForPlane(id) { return reality.querySelector('#' + elementIdForPlane(id)); }
+      function getAllPlanes() { return reality.querySelectorAll('a-plane.plane'); }
+      function removePlaneElement(pe) {
+        if (pe && pe.parentElement) { pe.parentElement.removeChild(pe); }
+        return pe;
+      }
+      function removePlaneForId(id) {
+        var pe = elementForPlane(id);
+        if (pe && pe.parentElement) { removePlaneElement(pe); }
+        return pe;
+      }
+      function makePlaneForId(id) {
+        var pe = document.createElement('a-plane');
+        pe.setAttribute('id', elementIdForPlane(id));
+        pe.setAttribute('class', 'plane');
+        pe.setAttribute('material', {shader:'grid', color:'red', opacity:0.3});
+        reality.appendChild(pe);
+        return pe;
+      }
+            
+      function bigEnough(pe) {
+        // once we find a big enough plane, do something
+      }
+      
+      var tempMat4 = new THREE.Matrix4();
+      var tempScale = new THREE.Vector3();
+      
+      function onAddedOrUpdatedPlanes(evt) {
+        evt.detail.anchors.forEach(function (anchor) {
+          var planeId = anchor.identifier;
+          var pe = elementForPlane(planeId);
+          if (!pe) { 
+            pe = makePlaneForId(planeId);
+            
+            // Create the temp objects we will use when updating.
+            pe.tempPosition = new THREE.Vector3();
+            pe.tempQuaternion = new THREE.Quaternion();
+            pe.tempEuler = new THREE.Euler(0, 0, 0, 'YXZ');
+            pe.tempRotation = new THREE.Vector3();            
+          }        
+
+          // Update the plane.
+          var dx = anchor.extent[0];
+          var dz = anchor.extent[1];
+          tempMat4.fromArray(anchor.modelMatrix);
+          tempMat4.decompose(pe.tempPosition, pe.tempQuaternion, tempScale);
+          pe.tempEuler.setFromQuaternion(pe.tempQuaternion);
+          pe.tempRotation.set(
+            -90 + pe.tempEuler.x * THREE.Math.RAD2DEG,
+            pe.tempEuler.y * THREE.Math.RAD2DEG,
+            pe.tempEuler.z * THREE.Math.RAD2DEG);
+          pe.setAttribute('position', pe.tempPosition);
+          pe.setAttribute('rotation', pe.tempRotation);
+          // Currently, scale is always 1... 
+
+          // Fill out the plane label with informative text.
+          // DETAIL: when creating, getAttribute doesn't work this tick
+          var txt = 
+            'id: ' + anchor.identifier
+          + '\nwidth: ' + dx
+          + '\ndepth: ' + dz
+          + '\nposition x: ' + pe.tempPosition.x
+          + '\nposition y: ' + pe.tempPosition.y
+          + '\nposition z: ' + pe.tempPosition.z
+          + '\nrotation x: ' + pe.tempRotation.x
+          + '\nrotation y: ' + pe.tempRotation.y
+          + '\nrotation z: ' + pe.tempRotation.z
+          // Currently, scale is always 1... 
+          ;
+          pe.setAttribute('text', {
+           width: dx, 
+           height: dz, 
+           color: 'gray',
+           align: 'left',
+           zOffset: 0.01,
+           wrapCount: 100, value: txt
+          });
+          showHUD(txt);
+        });                  
+      }
+      
+      function onRemovedPlanes(evt) {
+        evt.detail.anchors.forEach(function (anchor) {
+          var planeId = anchor.identifier;
+          showHUD('removePlane ' + planeId);
+          // Remove plane for this id.
+          return removePlaneForId(planeId);
+        });
+      }            
+
+      function onUpdatedPlanes(evt) {
+        onAddedOrUpdatedPlanes(evt);
+
+        // For this example, once we find a big enough plane, do something.
+        for (var i=0; i<evt.detail.anchors.length; i++) {
+          var anchor = evt.detail.anchors[i];
+          var extent = anchor.extent;
+          if (extent[0] >= 0.5 && extent[1] >= 0.5) {
+            bigEnough(elementForPlane(anchor.identifier));
+            break;
+          }            
+        }
+      }
+
+      function addEventListeners() {
+        scene.addEventListener('anchorsadded', onAddedOrUpdatedPlanes);      
+        scene.addEventListener('anchorsremoved', onRemovedPlanes);
+        scene.addEventListener('anchorsupdated', onUpdatedPlanes);
+      }
+      
+      function removeEventListeners() {
+        scene.removeEventListener('anchorsadded', onAddedOrUpdatedPlanes);      
+        scene.removeEventListener('anchorsremoved', onRemovedPlanes);
+        scene.removeEventListener('anchorsupdated', onUpdatedPlanes);
+      }
+
+      function onSceneLoaded() {
+        // Using document.querySelector lets us place clara on the scene if we like.
+        clara = document.querySelector('[clara]').components['clara'];
+        
+        addEventListeners();
+
+        // Speech test: say hello.        
+        console.warn('about to say "hello"; isSpeaking true; voiceCancel');
+        clara.isSpeaking = true;
+        clara.stopSpeaking();
+        clara.speak("hello");
+        
+        // Vision.CoreML test: on click or hearing "What", analyze current frame,
+        // and say something about the top result.
+        
+        clara.el.addEventListener('analyzecurrentframe', function (evt) {
+          var results = evt.detail.results;
+          // Show and say the top 5 results.
+          var msg = '';
+          for (var i=0; i<results.length && i<5; i++) {
+            msg += Math.floor(results[i].confidence * 100) + ' percent '
+              + results[i].identifier + '\n';
+          }
+          showHUD(msg);
+          
+          console.warn('about to say "' + msg + '"; isSpeaking true; voiceCancel');
+          clara.isSpeaking = true;
+          clara.stopSpeaking();
+          clara.speak(msg);
+        });
+
+        clara.el.addEventListener('barcodescurrentframe', function (evt) {
+          showHUD('barcodescurrentframe: ' + evt.detail.timestamp + '\n'
+                  + evt.detail.results.map(e => e.symbology + ': ' + e.payload).join('\n'));
+        });
+        
+        scene.canvas.addEventListener('click', function () {
+          showHUD('click');
+          clara.analyzeCurrentFrame();
+        });
+        
+        clara.el.addEventListener('tts-start', function () {
+          // When we start speaking, stop listening.
+          console.warn('tts-start, isSpeaking true');
+          clara.isSpeaking = true;
+/*          
+          // Somehow, doing voiceCancel here kills us speaking...          
+          console.warn('tts-start, voiceStop');
+          clara.voiceStop();
+*/          
+        });
+        
+        clara.el.addEventListener('tts-cancel', function () {
+          // When we stop speaking, start listening.
+          console.warn('tts-cancel, isSpeaking false');
+          clara.isSpeaking = false;
+          console.warn('tts-cancel, voiceCancel');
+          clara.voiceCancel();
+          console.warn('tts-cancel, voiceStart');
+          clara.voiceStart();
+        });
+        
+        clara.el.addEventListener('tts-finish', function () {
+          // When we stop speaking, start listening.
+          console.warn('tts-finish, isSpeaking false');
+          clara.isSpeaking = false;
+          console.warn('tts-finish, voiceCancel');
+          clara.voiceCancel();
+          console.warn('tts-finish, voiceStart');
+          clara.voiceStart();
+        });
+/*
+        // Voice test: check if voice is available, if so, start listening.
+        
+        clara.el.addEventListener('voiceavailable', function (evt) {
+          showHUD('voiceavailable, starting');
+          console.warn('voiceAvailable, voiceStart');
+          clara.voiceStart();                
+        });
+        
+        // FIXME: not getting event back
+        showHUD('checking if voice available');
+        clara.voiceAvailable();      
+        
+        showHUD('starting voice');
+        console.warn('starting, voiceStart');
+        clara.voiceStart();
+*/
+        var currentFrameLastAnalyzed;
+        var voiceresultsCount = 0;
+        
+        // Voice: process speech recognition results.
+        
+        // FIXME: something is flaky, 
+        // we get "final" results of "What" more than once from same utterance?
+        clara.el.addEventListener('voicerecognized', function (evt) {
+          var now = Date.now();
+          var value = evt.detail;
+          var msg = '';
+          if (value && value.length > 0) {
+            for (var i=0; i<value.length; i++) {
+              msg += (i > 0 ? ', ' : '') + value[i];
+            }
+          }
+          // ignore if speaking
+          if (clara.isSpeaking) { 
+            console.warn('voicerecognized, but speaking: ' + msg);
+            return; 
+          }          
+          
+          showHUD('voicerecognized ' + (++voiceresultsCount) + ': ' + msg);
+        });
+
+        clara.el.addEventListener('voicefinalrecognized', function (evt) {
+          var now = Date.now();
+          var value = evt.detail;
+          var msg = '';
+          if (value && value.length > 0) {
+            for (var i=0; i<value.length; i++) {
+              msg += (i > 0 ? ', ' : '') + value[i];
+            }
+          }
+          // ignore if speaking
+          if (clara.isSpeaking) { 
+            console.warn('voicefinalrecognized, but speaking: ' + msg);
+            return; 
+          }          
+          
+          showHUD('voicefinalrecognized ' + (++voiceresultsCount) + ': ' + msg);
+          if (value.length === 1 && value[0] === 'Where') {
+            clara.voiceCancel(); // end this utterance                    
+            navigator.geolocation.getCurrentPosition(function(position) {
+              showHUD('geoposition ' 
+                      + position.coords.latitude + ', ' 
+                      + position.coords.longitude);
+            });
+          } else
+          if (value.length === 1 && value[0].startsWith('What is that')) {
+            clara.voiceCancel(); // end this utterance                    
+            clara.analyzeCurrentFrame("mobilenet");
+          } else
+          if (value.length === 1 && value[0].startsWith('How old')) {
+            clara.voiceCancel(); // end this utterance                    
+            clara.analyzeCurrentFrame("age");
+          } else
+          if (value.length === 1 && value[0].startsWith('What gender')) {
+            clara.voiceCancel(); // end this utterance                    
+            clara.analyzeCurrentFrame("gender");
+          } else
+          if (value.length === 1 && value[0].startsWith('What emotion')) {
+            clara.voiceCancel(); // end this utterance                    
+            clara.analyzeCurrentFrame("emotion");
+          } else
+          if (value.length === 1 && value[0].startsWith('QR code')) {
+            clara.voiceCancel(); // end this utterance                    
+            clara.barcodesCurrentFrame();
+          }
+        });        
+        
+        // Voice: when utterance and recognition ends, restart it.
+        
+        clara.el.addEventListener('voiceend', function (evt) {
+          //showHUD('voiceend, starting next utterance');
+          setTimeout(() => { if (clara.isSpeaking) { 
+            console.warn('voiceend, isSpeaking');
+          } else {
+            console.warn('voiceend, !isSpeaking, voiceStart');
+            clara.voiceStart(); 
+          }});                
+        });        
+      }
+      
+      if (scene.hasLoaded) { 
+        onSceneLoaded();
+      } else {
+        scene.addEventListener('loaded', onSceneLoaded); 
+      }
+    </script>
+  </body>
+</html>
