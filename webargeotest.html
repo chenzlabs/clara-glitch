@@ -17,8 +17,13 @@
   <body>
     <!-- Use AR with the scene, and don't show the usual VR icon. -->
     <a-scene ar>
-      <!-- Wrap in a reality so we can offset position later, e.g. to emulate long/lat. -->
+      <!-- Wrap in a reality so we can offset position later, e.g. to emulate lat/long. -->
       <a-entity id="reality">
+        <!-- The map is rooted in reality. -->
+        <a-box id="map" 
+               position="0 -1 0" height="0.001" 
+               material="shader:grid;interval:1;side:front;transparent:true"></a-box>        
+        
         <!-- Wrap in a locality. -->
         <a-entity id="locality" clara clara-pointcloud>
           <!-- ARKit used for camera position/rotation and projection matrix -->
@@ -28,16 +33,11 @@
                     scale="0.01 0.01 0.01" position="0 -0.025 -0.1" 
                     color="yellow" align="center" 
                     value="Hi there"></a-text>
+            <!-- Head-locked map used for heads-up display to the user. -->
             <a-plane id="hudmap" 
                     scale="0.03 0.03 0.03" position="0 -0.05 -0.11"></a-plane>
           </a-camera>
-        </a-entity>  
-                
-        <!-- So... the idea was to have reality provide entities,
-             but the position seems to be disregarded after a brief time... -->
-        <a-box id="map" position="0 -1 0" 
-               height="0.001" material="shader:grid;interval:1;side:front;transparent:true"></a-box>
-        
+        </a-entity>                  
       </a-entity>
     </a-scene>
     
@@ -91,12 +91,14 @@
             mapPosition.y -= 1;
             map.setAttribute('position', mapPosition);
             
+            // FIXME: only load image once...
+            
             // Load the map's texture.
             map.setAttribute('material', {
               transparent:true, 
               shader:'flat', 
               opacity: 0.7,
-              src: tileURLForLatLongZoom(latitude, longitude, zoom) });
+              src: tileURLForLatLongZoom(latitude, longitude, zoom)});
 
             // Load the HUD map's texture.            
             var hudmap = document.querySelector('#hudmap');
@@ -104,9 +106,10 @@
               transparent:true, 
               shader:'flat', 
               opacity: 1,
-              src: tileURLForLatLongZoom(latitude, longitude, zoom) });
+              src: tileURLForLatLongZoom(latitude, longitude, zoom)});
 
-            clara.getCompassHeading();
+            // Assume we're going to leave the compass running. 
+            // clara.getCompassHeading();
           });
         }     
                 
@@ -147,6 +150,7 @@
           syncGeoPosition();
         });               
         
+        clara.startCompass();
         syncGeoPosition();
       }
       
