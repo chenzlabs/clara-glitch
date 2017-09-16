@@ -1,0 +1,114 @@
+<html>
+  <head>
+    <!-- Include my latest A-Frame master. -->
+    <script src="//rawgit.com/chenzlabs/aframe/master/dist/aframe-master.js"></script>    
+    <!-- Include three.ar.js library. -->
+    <script src="//rawgit.com/google-ar/three.ar.js/master/dist/three.ar.js"></script>
+    <!-- Include my experimental A-Frame three.ar.js scene component with plane events. -->
+    <script src="//rawgit.com/chenzlabs/aframe-ar/experimental-planes/dist/aframe-ar.js"></script>
+    <!-- Include my A-Frame grid shader. -->
+    <script src="grid-shader.js"></script>
+    <!-- Include my Clara A-Frame scene component. -->
+    <script src="clara.js"></script>
+
+    <!-- Prevent touch causing flicker on iOS. -->
+    <style> * { -webkit-tap-highlight-color: rgba(0,0,0,0); } </style>    
+  </head>
+  <body>
+    <!-- Use AR with the scene, and don't show the usual VR icon. -->
+    <a-scene ar clara>
+      <!-- Wrap in a reality so we can offset position later, e.g. to emulate long/lat. -->
+      <a-entity id="reality">
+        <!-- Wrap in a locality. -->
+        <a-entity id="locality">
+          <!-- ARKit used for camera position/rotation and projection matrix -->
+          <a-camera>
+            <!-- Head-locked text used for heads-up display to the user. -->
+            <a-plane color="black" opacity="0.5" id="hud" width="1.2" height="0.8" 
+                     text="align:center;wrapCount:40;color:cyan;value:Hi" 
+                     position="0 -0.6 -2"></a-text>
+          </a-camera>
+        </a-entity>  
+      </a-entity>
+    </a-scene>
+    
+    <script>
+      var scene = document.querySelector('a-scene');
+      var reality = scene.querySelector('#reality');
+      var clara;
+      
+      var whichmodel = "";
+      
+      function showHUD(msg, color) { 
+        var properties = {value: msg};
+        if (color) { properties.color = color; }
+        scene.querySelector('#hud').setAttribute('text', properties);
+      }
+
+      function onSceneLoaded() {
+        // Using document.querySelector lets us place clara on the scene if we like.
+        clara = document.querySelector('[clara]').components['clara'];
+        
+        // Speech test: say hello.        
+        console.warn('about to say "hello"; isSpeaking true; voiceCancel');
+        clara.isSpeaking = true;
+        clara.stopSpeaking();
+        clara.speak("hello");
+        
+        // Vision.CoreML test: when done analyzing current frame,
+        // show something about the top results.
+        
+        clara.el.addEventListener('analyzecurrentframe', function (evt) {
+          var results = evt.detail.results;
+          // Show the top 5 results.
+          var msg = '';
+          for (var i=0; i<results.length && i<5; i++) {
+            msg += Math.floor(results[i].confidence * 100) + ' percent '
+              + results[i].identifier + '\n';
+          }
+          showHUD(msg);
+/*          
+          console.warn('about to say "' + msg + '"; isSpeaking true; voiceCancel');
+          clara.isSpeaking = true;
+          clara.stopSpeaking();
+          clara.speak(msg);
+*/          
+        });
+
+        clara.el.addEventListener('barcodescurrentframe', function (evt) {
+          showHUD('barcodescurrentframe: ' + evt.detail.timestamp + '\n'
+                  + evt.detail.results.map(e => e.symbology + ': ' + e.payload).join('\n'));
+        });
+        
+        scene.canvas.addEventListener('click', function () {
+          showHUD('click');
+        });
+        
+        // Analyze and/or look for QR barcodes every so often.
+        setInterval(function () {
+          if (whichmodel === 'qr') {
+            clara.barcodesCurrentFrame();
+          } else {
+            clara.analyzeCurrentFrame(whichmodel);
+          }
+        }, 1000 / 4);
+      }
+      
+      if (scene.hasLoaded) { 
+        onSceneLoaded();
+      } else {
+        scene.addEventListener('loaded', onSceneLoaded); 
+      }
+    </script>
+    
+    <select style="position:absolute;left:40%;top:0;width:20%;" onchange="whichmodel=this.value">
+      <option>inceptionv3</option>
+      <option>mobilenet</option>
+      <option>squeezenet</option>
+      <option>age</option>
+      <option>gender</option>
+      <option>emotion</option>
+      <option>qr</option>
+    </select>
+  </body>
+</html>
