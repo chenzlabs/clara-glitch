@@ -19,7 +19,12 @@ AFRAME.registerComponent('clara', {
   voiceCancel: function () { this.rnPostMessage('voiceCancel'); },
   
   speak: function (txt) { this.rnPostMessage('speak:' + txt); },
-  stopSpeaking: function () { this.rnPostMessage('stopSpeaking'); }
+  stopSpeaking: function () { this.rnPostMessage('stopSpeaking'); },
+  
+  // TODO: improve interface e.g. callback function or promise  
+  getCompassHeading: function () { this.rnPostMessage('getCompassHeading'); },
+  startCompass: function (delta) { this.rnPostMessage('startCompass:' + (delta !== undefined ? delta : '')); },
+  stopCompass: function () { this.rnPostMessage('stopCompass'); }
 });
 
 AFRAME.registerComponent('clara-pointcloud', {
