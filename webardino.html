@@ -9,10 +9,6 @@
     <!-- Include my A-Frame grid shader. -->
     <script src="grid-shader.js"></script>
     
-    <!-- Thanks to @Lady_Ada_King for the sky and ocean art! 
-         https://medium.com/samsung-internet-dev/i-made-my-first-pr-to-a-frame-3675d596a2d8 -->
-    <script src="https://samsunginter.net/a-frame-components/dist/ocean-plane.js"></script>
-
     <!-- Prevent touch causing flicker on iOS. -->
     <style> * { -webkit-tap-highlight-color: rgba(0,0,0,0); } </style>    
     
@@ -34,16 +30,7 @@
   <body>
     <!-- Use rn-arkit with the scene, and don't show the usual VR icon. -->
     <a-scene ar>
-      <a-assets>       
-        <!-- Preload the three.js example statue texture. 
-             https://threejs.org/examples/#webgl_loader_obj -->
-        <img src="https://cdn.glitch.com/f679c6a1-3690-45f5-a7f4-7b82d6ff689d%2FUV_Grid_Sm.jpg" />
-
-        <!-- Thanks to @Lady_Ada_King for the sky and ocean art! 
-             https://medium.com/samsung-internet-dev/i-made-my-first-pr-to-a-frame-3675d596a2d8 -->        
-        <img id="water-normal" src="https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/waternormals.jpg" crossorigin="anonymous" />
-        <img id="sky" src="https://img.gs/bbdkhfbzkk/2048x1024,stretch/https://samsunginternet.github.io/a-frame-demos/a-frame-assets/sky/CGSkies_0347_free.jpg" crossorigin="anonymous" />      
-        
+      <a-assets>        
         <!-- Comment out the mirror, since it doesn't work in WKWebView.
         <video id="mirror" autoplay muted plays-inline></video>
         -->
@@ -60,9 +47,6 @@
             <a-text id="hud" width="0.8" height="0.8" align="center" 
                     value="Looking for planes..." 
                     color="red" position="0 -0.6 -2"></a-text>
-
-            <!-- Mirror holder, not visible by default. -->
-            <a-video id="mirror-holder" position="0 2 -5" src="#sky" visible="false"></a-video>
           </a-camera>
         </a-entity>  
       </a-entity>
@@ -245,34 +229,6 @@
 
       function onSceneLoaded() {
         addSceneEventListeners();      
-/*        
-        // NOTE: Works in Safari, but never returns within RN WebView (no navigator.mediaDevices).
-        var mirror = document.querySelector('#mirror');
-        var mirrorHolder = document.querySelector('#mirror-holder');
-        // We want just video from the user-facing camera.
-        var constraints = {audio:false, video:{facingMode:'user'}};
-        // Request access to the camera.
-        if (navigator.mediaDevices) {
-          if (!navigator.mediaDevices.getUserMedia) { 
-            showHUD('no navigator.mediaDevices.getUserMedia'); 
-          } else {
-            navigator.mediaDevices.getUserMedia(constraints).then(function success(stream) {
-              // Set the video source of the mirror video to the camera stream.
-              mirror.srcObject = stream;
-              // Set the source of the mirror holder to the mirror video.
-              mirrorHolder.setAttribute('src', '#mirror');
-              // Get the mirror video playing.
-              mirror.play();
-              // Make the mirror holder (and the mirror) visible.
-              mirrorHolder.setAttribute('visible', true);
-
-              showHUD('Mirror OK');
-            }).catch(function failure() { 
-              showHUD('getUserMedia error');
-            });
-          }
-        }
-*/        
       }
       
       if (scene.hasLoaded) { 
