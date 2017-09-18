@@ -37,7 +37,7 @@
       var reality = scene.querySelector('#reality');
       var clara;
       
-      var whichmodel = "";
+      var whichmodel = "gender";
       
       function showHUD(msg, color) { 
         var properties = {value: msg};
@@ -67,7 +67,7 @@
               + results[i].identifier + '\n';
           }
           showHUD(msg);
-/*          
+/*         
           console.warn('about to say "' + msg + '"; isSpeaking true; voiceCancel');
           clara.isSpeaking = true;
           clara.stopSpeaking();
@@ -81,7 +81,12 @@
         });
         
         scene.canvas.addEventListener('click', function () {
-          showHUD('click');
+          //showHUD('click');
+          var msg = document.querySelector('#hud').getAttribute('text').value;
+          console.warn('about to say "' + msg + '"; isSpeaking true; voiceCancel');
+          clara.isSpeaking = true;
+          clara.stopSpeaking();
+          clara.speak(msg);
         });
         
         // Analyze and/or look for QR barcodes every so often.
@@ -102,13 +107,15 @@
     </script>
     
     <select style="position:absolute;left:40%;top:0;width:20%;" onchange="whichmodel=this.value">
+      <option>gender</option>
+      <option>age</option>
+      <option>emotion</option>
+      
+      <option>qr</option>
+      
       <option>inceptionv3</option>
       <option>mobilenet</option>
       <option>squeezenet</option>
-      <option>age</option>
-      <option>gender</option>
-      <option>emotion</option>
-      <option>qr</option>
     </select>
   </body>
 </html>
