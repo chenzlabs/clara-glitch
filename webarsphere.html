@@ -11,29 +11,12 @@
     
     <!-- Prevent touch causing flicker on iOS. -->
     <style> * { -webkit-tap-highlight-color: rgba(0,0,0,0); } </style>    
-    
-    <!-- For now, need aframe-extras for the glTF 2.0 loader. -->
-    <script src="//cdn.rawgit.com/donmccurdy/aframe-extras/v3.11.2/dist/aframe-extras.min.js"></script>
-
-    <script>
-      // Dino from Sketchfab.
-      // https://sketchfab.com/models/516dbe9717554e74b0bfcbb77a431b17#download
-      // Tyrannosaurus Rex Lowpoly by pikabobalex is licensed under CC Attribution
-      AFRAME.registerComponent('dino', {
-        init: function () {
-          this.el.setAttribute('scale', '0.01 0.01 0.01');
-          this.el.setAttribute('gltf-model-next', 'https://chenz.org/ar/tyrannosaurus_rex_lowpoly/scene.gltf');
-        }
-      });
-    </script>
   </head>
   <body>
     <!-- Use rn-arkit with the scene, and don't show the usual VR icon. -->
     <a-scene ar>
-      <a-assets>        
-        <!-- Comment out the mirror, since it doesn't work in WKWebView.
-        <video id="mirror" autoplay muted plays-inline></video>
-        -->
+      <a-assets>       
+        <img id="sky" src="https://img.gs/bbdkhfbzkk/2048x1024,stretch/https://samsunginternet.github.io/a-frame-demos/a-frame-assets/sky/CGSkies_0347_free.jpg" crossorigin="anonymous" />      
       </a-assets>
 
       <!-- wrap in a reality so we can offset position later, e.g. to emulate long/lat -->
@@ -94,10 +77,8 @@
         pe.setAttribute('material', {shader:'grid', color:'red', opacity:0.3});
         reality.appendChild(pe);
         
-        // Compensate for plane rotation and stand up a dancing stormtrooper.
-        // https://threejs.org/examples/webgl_loader_collada_skinning.html
         pe.insertAdjacentHTML('beforeend', 
-          '<a-entity rotation="90 0 0" dino></a-entity>');
+          '<a-entity position="0 1.5 0" geometry="primitive:sphere" scale="0.5 0.5 -0.5" material="shader:flat; src:#sky; side:back"></a-entity>');
         return pe;
       }
             
@@ -228,7 +209,7 @@
       }
 
       function onSceneLoaded() {
-        addSceneEventListeners();      
+        addSceneEventListeners();        
       }
       
       if (scene.hasLoaded) { 
