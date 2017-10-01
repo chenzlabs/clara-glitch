@@ -10,38 +10,91 @@
     <script src="grid-shader.js"></script>
     
     <!-- Prevent touch causing flicker on iOS. -->
-    <style> * { -webkit-tap-highlight-color: rgba(0,0,0,0); } </style>    
+    <style> * { -webkit-tap-highlight-color: rgba(0,0,0,0); } </style>            
   </head>
-  <body>    
+  <body>
+    <script>
+AFRAME.registerComponent('pointcloud', {
+  schema: {
+    visualize: {default: true}  
+  },
+  
+  init: function () {
+    var self = this;
+
+    // Define maximum number of points in the cloud.
+    // For ARKit, this does not need to be that high.
+    this.maxPoints = 1000;
+
+    // Allocate array of position coordinates.
+    this.points = new Float32Array(this.maxPoints * 3);
+    
+    // Create the points object.
+    this.pointsObject = new THREE.Points(new THREE.BufferGeometry(),
+      new THREE.PointsMaterial({
+        color: 0xff00ffff,
+        size: 0.01,            
+        sizeAttenuation: true,
+        depthTest: false, // set to true to let objects occlude
+        depthWrite: false}));
+    
+    // Add array of position coordinates to the geometry.
+    this.pointsObject.geometry.addAttribute('position', new THREE.BufferAttribute(this.points, 3));
+  },          
+      
+  updatePoints: function (points) {   
+    this.points.set(points);      
+
+    // If visualizing, set draw range and flag for update.
+    if (this.data.visualize) {
+      this.pointsObject.geometry.setDrawRange(0, Math.min(points.length, this.maxPoints*3));
+      this.pointsObject.geometry.attributes.position.needsUpdate = true;
+    }
+    // Emit an event in case custom behavior is desired.
+    this.el.emit('pointcloudupdated', {points: points});
+  },
+  
+  update: function (oldData) {
+    if (!oldData || this.data.visualize !== oldData.visualize) {
+      if (this.data.visualize) {        
+        // Add the points object to the entity.
+        this.el.setObject3D('points', this.pointsObject);    
+
+        // Make sure pointcloud is not culled, even if origin is not visible.
+        this.el.object3D.frustumCulled = false;
+        this.pointsObject.frustumCulled = false;        
+      } else {
+        // Remove the points object from the entity.
+        this.el.removeObject3D('points');
+        
+        // Set the draw range to zero i.e. none of the points (yet).
+        this.pointsObject.geometry.setDrawRange(0, 0);
+      }
+    }
+  },
+
+  tick: function () {
+    // If we don't have a reference to the arDisplay.
+    if (!this.arDisplay) { this.arDisplay = this.el.sceneEl.components['three-ar'].arDisplay; }
+
+    // If we have a reference, and the method exists, request point cloud data.
+    var pointcloud = this.arDisplay && this.arDisplay.getPointCloud && this.arDisplay.getPointCloud();
+    if (pointcloud) { 
+      this.pointsObject.position.fromArray(pointcloud.position);
+      this.pointsObject.quaternion.fromArray(pointcloud.orientation);
+      if (pointcloud.points) { 
+        this.updatePoints(pointcloud.points); 
+      } 
+    }
+  }
+});
+    </script>
+    
     <script>
       AFRAME.registerComponent('thing', {
-        schema: { 
-          src: {default: ''},
-          side: {default: 'front'}
-        },
         init: function () {
-/*          
           this.el.setAttribute('geometry', {primitive:'box', width:0.01, depth:0.01, height:1});
           this.el.setAttribute('position', {y:0.5});
-*/
-          this.el.setAttribute('position', '0 1.5 0');
-          this.el.setAttribute('geometry', 'primitive:sphere; radius:0.25');
-          //if (this.data.side === 'back' ) { this.el.setAttribute('scale', '1 1 -1'); }
-          // FIXME: can see when on the inside, but don't want to see on the outside
-          var materialprops = {shader:'flat', side:this.data.side};
-          if (this.data.src && this.data.src.length > 0) { materialprops.src = this.data.src; }
-          this.el.setAttribute('material', materialprops);
-        }
-      });            
-    </script>
-
-    <script>
-      AFRAME.registerComponent('sync-camera-position', {
-        tick: function (t, dt) {
-          var scene = this.el.sceneEl;
-          if (scene && scene.camera && scene.camera.el) {
-            this.el.setAttribute('position', scene.camera.el.getAttribute('position'));
-          }
         }
       });            
     </script>
@@ -73,11 +126,7 @@ AFRAME.registerGeometry('polygon', {
 });      
     </script>
     
-    <a-scene ar>
-      <a-assets>       
-        <img id="sky" src="https://aframe.io/aframe/examples/boilerplate/panorama/puydesancy.jpg" crossorigin="anonymous" />      
-      </a-assets>
-
+    <a-scene ar pointcloud>
       <!-- When we have a raycaster hit, we use this ball to show where. -->
       <a-sphere id="ball" radius="0.01" position="0 0.005 -0.5"></a-sphere>
 
@@ -101,20 +150,13 @@ AFRAME.registerGeometry('polygon', {
         <a-text id="hud" 
                 scale="0.01 0.01 0.01" position="0 -0.025 -0.1" 
                 color="yellow" align="center" 
-                value="Hi there"></a-text>        
+                value="Hi there"></a-text>
       </a-camera>
-      
-      <!-- Shoot a raycaster downward, to know which plane you're on. -->
-      <a-entity id="floorfinder" sync-camera-position raycaster="objects:.plane;;recursive:false;direction:0 -1 0"></a-entity>
-
     </a-scene>    
     
     <script>
       var sc = document.querySelector('a-scene');
-      function showHUD(msg, color) { 
-        sc.querySelector('#hud').setAttribute('value', msg); 
-        if (color) { sc.querySelector('#hud').setAttribute('text', {color: color}); }
-      }
+      function showHUD(msg) { sc.querySelector('#hud').setAttribute('value', msg); }
       
       var randomColors = ['red', 'orange', /* 'yellow', */ 'green', 'blue', 'violet'];
         
@@ -163,16 +205,8 @@ AFRAME.registerGeometry('polygon', {
               
               // Add bounding box.
               '<a-box class="bbox" position="0 0 0" height="0" material="wireframe:true;opacity:0.5;color:' + colorToUse + '"></a-box>' +
-                                     
               // Add a thing to mark the center of the plane.
-              // This is the outer sphere, which at the moment needs to be opaque
-              // in order to hide the inner sphere.
-              // FIXME: not just flat color, some lighting would be nice
-              '<a-entity thing material="shader:standard;color:gray"></a-entity>' +
-              // This is the inner sphere, which shows the image when inside.
-              // FIXME: Use a shader that discards or shows alternative when outside,
-              // which would remove the need for the opaque twin.
-              '<a-entity thing="src:#sky;side:back"></a-entity>');
+              '<a-entity thing></a-entity>');
 
             // Create the temp objects we will use when updating.
             plane.tempPosition = new THREE.Vector3();
@@ -200,9 +234,8 @@ AFRAME.registerGeometry('polygon', {
 
           // If we have vertices, use polygon geometry
           if (anchor.vertices) {
-            // fails... perhaps it can't handle Float32Array?
-            //plane.setAttribute('geometry', {primitive:'polygon', vertices: evt.detail.vertices});
-            plane.setAttribute('geometry', 'primitive:polygon; vertices:' + anchor.vertices.join(','));
+            // anchor.vertices works for latest ARKit but not for latest ARCore; Float32Array issue?
+            plane.setAttribute('geometry', {primitive:'polygon', vertices: anchor.vertices.join(',')});
           } else {
             plane.setAttribute('geometry', 'primitive:box; width:' + dx +
                                            '; height:0.001; depth:' + dz);                    
@@ -280,30 +313,10 @@ AFRAME.registerGeometry('polygon', {
           ball.setAttribute('visible', false);
         });
       }
-
-      function addFloorFinderListeners() {
-        var raycaster = sc.querySelector('#floorfinder');
-        // Note, -intersection is what the raycaster gets; the hit object gets -intersected.
-        raycaster.addEventListener('raycaster-intersection', function (evt) {
-          // Use first hit (which should be nearest).
-          var point = evt.detail.intersections[0].point;
-          var distance = evt.detail.intersections[0].distance;
-          var el = evt.detail.els[0];
-          showHUD('floorfinder ' + distance + '\n' + JSON.stringify(point) + '\n' + el.id /*el.outerHTML*/
-                 , el.getAttribute('material').color);
-          if (el.getAttribute('class') === 'plane') { el.setAttribute('opacity', 1.0); }
-        });
-        raycaster.addEventListener('raycaster-intersection-cleared', function (evt) {
-          var el = evt.detail.el;
-          showHUD('floorfinder cleared\n' + el.id /*el.outerHTML*/, 'yellow');
-          if (el.getAttribute('class') === 'plane') { el.setAttribute('opacity', 0.5); }
-        });
-      }
-            
+      
       function addEventListeners() {
         addARRaycasterListeners();
         addPlaneListeners();
-        addFloorFinderListeners();
       }      
       
       function onSceneLoaded() { 
@@ -314,16 +327,15 @@ AFRAME.registerGeometry('polygon', {
           // If the cursor has an intersection, place a marker.
           var cursor = sc.querySelector('[ar-raycaster]').components.cursor;
           if (cursor.intersection) {
-            var marker = document.createElement('a-cone');
-            marker.setAttribute('radius-bottom', 0);
-            marker.setAttribute('radius-top', 0.01);
+            var marker = document.createElement('a-box');
+            marker.setAttribute('width', 0.01);
+            marker.setAttribute('depth', 0.01);
             marker.setAttribute('height', 1);
-            marker.setAttribute('color', cursor.intersection.object.el.getAttribute('material').color || 'orange');
-
+            marker.setAttribute('color', 'orange');
             marker.setAttribute('position', {
               x: cursor.intersection.point.x, 
               y: cursor.intersection.point.y + 0.5, 
-              z: cursor.intersection.point.z});              
+              z: cursor.intersection.point.z});
             sc.appendChild(marker);         
           }
           
